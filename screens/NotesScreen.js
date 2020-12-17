@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from "react";
+import firebase from "../database/firebaseDB"
+
 import {
   StyleSheet,
   Text,
@@ -10,6 +12,25 @@ import { Ionicons } from "@expo/vector-icons";
 
 export default function NotesScreen({ navigation, route }) {
   const [notes, setNotes] = useState([]);
+  const db = firebase.firestore().collection("todos");
+
+  useEffect(() => {
+    const unsubscribe = db
+     .orderBy("created")
+     .onSnapshot((collection) => {
+      const updatedNotes = collection.docs.map((doc) => {
+        const noteObject = {
+          ...doc.data(),
+          id: doc.id,
+        };
+        console.log(noteObject);
+        return noteObject;
+      });
+      setNotes(updatedNotes);
+    });
+
+    return unsubscribe; // return the cleanup function
+  }, []);
 
   // This is to set up the top right button
   useEffect(() => {
@@ -36,9 +57,10 @@ export default function NotesScreen({ navigation, route }) {
       const newNote = {
         title: route.params.text,
         done: false,
-        id: notes.length.toString(),
+        created: firebase.firestore.FieldValue.serverTimestamp(),
+
       };
-      setNotes([...notes, newNote]);
+      db.add(newNote);
     }
   }, [route.params?.text]);
 
@@ -49,8 +71,7 @@ export default function NotesScreen({ navigation, route }) {
   // This deletes an individual note
   function deleteNote(id) {
     console.log("Deleting " + id);
-    // To delete that item, we filter out the item we don't want
-    setNotes(notes.filter((item) => item.id !== id));
+    db.doc(id).delete();
   }
 
   // The function to render each row in our FlatList
